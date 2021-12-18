@@ -1,7 +1,7 @@
 import { mat4 } from "gl-matrix";
 import React, { useEffect, useRef } from "react";
-import { Shader } from "./webgl/Shader";
-import { ShaderProgram } from "./webgl/ShaderProgram";
+import { Shader } from "../webgl/Shader";
+import { ShaderProgram } from "../webgl/ShaderProgram";
 
 function initBuffers(gl) {
   // Create a buffer for the square's positions.

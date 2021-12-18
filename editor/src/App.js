@@ -1,6 +1,6 @@
 import logo from "./logo.svg";
 import "./App.css";
-import Viewport from "./Viewport";
+import Viewport from "./components/Viewport";
 
 function App() {
   return (
