@@ -1,5 +1,7 @@
-import { mat3, mat4 } from "gl-matrix";
+import { mat4 } from "gl-matrix";
 import React, { useEffect, useRef } from "react";
+import { Shader } from "./webgl/Shader";
+import { ShaderProgram } from "./webgl/ShaderProgram";
 
 function initBuffers(gl) {
   // Create a buffer for the square's positions.
@@ -26,7 +28,7 @@ function initBuffers(gl) {
   };
 }
 
-const vertexShaderSource = `
+const vsSource = `
 attribute vec4 aPosition;
 
 uniform mat4 uProjectionMatrix;
@@ -38,60 +40,11 @@ void main() {
 }
 `;
 
-const fragmentShaderSource = `
+const fsSource = `
 void main() {
     gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
 }
 `;
-
-/**
- * Create a new shader from source code
- * @param {WebGLRenderingContext} gl WebGL context
- * @param {GLenum} type Shader type
- * @param {String} source Source code
- * @returns {WebGLShader} Shader handle
- */
-const createShader = (gl, type, source) => {
-  const shader = gl.createShader(type);
-  gl.shaderSource(shader, source);
-  gl.compileShader(shader);
-
-  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    console.error(
-      `Unable to compile WebGL shader: ${gl.getShaderInfoLog(shader)}`
-    );
-
-    // Do not leak the shader
-    gl.deleteShader(shader);
-    return null;
-  }
-
-  return shader;
-};
-
-/**
- * Create a new shader program using the specified shaders
- * @param {WebGLRenderingContext} gl WebGL context
- * @param {Array.<WebGLShader>} shaders Shaders to link into a shader program
- * @returns {WebGLProgram} Shader handle
- */
-const createShaderProgram = (gl, shaders) => {
-  const program = gl.createProgram();
-  shaders.forEach((shader) => gl.attachShader(program, shader));
-  gl.linkProgram(program);
-
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-    console.error(
-      `Unable to link WebGL shader program: ${gl.getProgramInfoLog(program)}`
-    );
-
-    // Do not leak the program
-    gl.deleteProgram(program);
-    return null;
-  }
-
-  return program;
-};
 
 const Viewport = () => {
   let frameIndex = null;
@@ -106,31 +59,35 @@ const Viewport = () => {
       return;
     }
 
-    const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+    const vertexShader = new Shader(gl, vsSource, gl.VERTEX_SHADER);
+    const fragmentShader = new Shader(gl, fsSource, gl.FRAGMENT_SHADER);
 
-    const fragmentShader = createShader(
-      gl,
-      gl.FRAGMENT_SHADER,
-      fragmentShaderSource
-    );
-
-    const basicShaderProgram = createShaderProgram(gl, [
-      vertexShader,
-      fragmentShader,
+    const basicShaderProgram = new ShaderProgram(gl, [
+      vertexShader.handle,
+      fragmentShader.handle,
     ]);
 
     const basicShaderProgramInfo = {
-      program: basicShaderProgram,
+      program: basicShaderProgram.handle,
       attributes: {
-        vertexPosition: gl.getAttribLocation(basicShaderProgram, "aPosition"),
+        vertexPosition: gl.getAttribLocation(
+          basicShaderProgram.handle,
+          "aPosition"
+        ),
       },
       uniforms: {
         projectionMatrix: gl.getUniformLocation(
-          basicShaderProgram,
+          basicShaderProgram.handle,
           "uProjectionMatrix"
         ),
-        viewMatrix: gl.getUniformLocation(basicShaderProgram, "uViewMatrix"),
-        modelMatrix: gl.getUniformLocation(basicShaderProgram, "uModelMatrix"),
+        viewMatrix: gl.getUniformLocation(
+          basicShaderProgram.handle,
+          "uViewMatrix"
+        ),
+        modelMatrix: gl.getUniformLocation(
+          basicShaderProgram.handle,
+          "uModelMatrix"
+        ),
       },
     };
 
