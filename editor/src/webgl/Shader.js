@@ -1,3 +1,6 @@
+/**
+ * Represents a compiled shader
+ */
 class Shader {
   /**
    * Create a new shader from source code
@@ -25,7 +28,25 @@ class Shader {
    */
   destroy(gl) {
     gl.deleteShader(this.handle);
+    this.handle = null;
   }
 }
 
-export { Shader };
+/**
+ * Contains all information necessary to create a shader
+ */
+class ShaderCreateInfo {
+  /**
+   * Create a new shader create info object
+   * @param {string} name Name of this shader
+   * @param {GLenum} type WebGL enum that represents this shader's type
+   * @param {string} sourceCode Shader's source code
+   */
+  constructor(name, type, sourceCode) {
+    this.name = name;
+    this.type = type;
+    this.sourceCode = sourceCode;
+  }
+}
+
+export { Shader, ShaderCreateInfo };

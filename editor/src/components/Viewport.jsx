@@ -1,9 +1,17 @@
 import "../style/Viewport.css";
 
 import { useEffect, useRef } from "react";
-import { Shader } from "../webgl/Shader";
-import { ShaderProgram } from "../webgl/ShaderProgram";
-import { Texture } from "../webgl/Texture";
+import { BufferCreateInfo } from "../webgl/Buffer";
+import { Renderer } from "../webgl/Renderer";
+import { ShaderCreateInfo } from "../webgl/Shader";
+import { ShaderProgramCreateInfo } from "../webgl/ShaderProgram";
+import { TextureCreateInfo } from "../webgl/Texture";
+
+const VERTEX_SHADER_NAME = "FullscreenTriangleVS";
+const FRAGMENT_SHADER_NAME = "FullscreenTriangleFS";
+const SHADER_PROGRAM_NAME = "FullscreenTriangle";
+const TEXTURE_NAME = "DebugImage";
+const TRIANGLE_BUFFER_NAME = "Triangle";
 
 const vsSource = `
 attribute vec2 aPosition;
@@ -39,13 +47,23 @@ const Viewport = () => {
       return;
     }
 
-    const vertexShader = new Shader(gl, vsSource, gl.VERTEX_SHADER);
-    const fragmentShader = new Shader(gl, fsSource, gl.FRAGMENT_SHADER);
+    const renderer = new Renderer(gl);
 
-    const basicShaderProgram = new ShaderProgram(gl, [
-      vertexShader.handle,
-      fragmentShader.handle,
-    ]);
+    // Request shaders
+    renderer.addShader(
+      new ShaderCreateInfo(VERTEX_SHADER_NAME, gl.VERTEX_SHADER, vsSource)
+    );
+    renderer.addShader(
+      new ShaderCreateInfo(FRAGMENT_SHADER_NAME, gl.FRAGMENT_SHADER, fsSource)
+    );
+    renderer.addProgram(
+      new ShaderProgramCreateInfo(SHADER_PROGRAM_NAME, [
+        VERTEX_SHADER_NAME,
+        FRAGMENT_SHADER_NAME,
+      ])
+    );
+
+    const basicShaderProgram = renderer.programs.get(SHADER_PROGRAM_NAME);
 
     const basicShaderProgramInfo = {
       program: basicShaderProgram.handle,
@@ -61,13 +79,26 @@ const Viewport = () => {
     };
 
     // Create a new texture whenever the debug URL changes
-    const texture = new Texture(gl);
     const debugUrl = document.getElementById("debug-texture-url");
     debugUrl.onkeyup = () => {
       const img = new Image();
       img.crossOrigin = "anonymous";
       img.onload = () => {
-        texture.setImageData(gl, img, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE);
+        // Remove the old texture (if it exists)
+        if (renderer.textures.get(TEXTURE_NAME)) {
+          renderer.deleteTexture(TEXTURE_NAME);
+        }
+
+        // Request a new texture
+        renderer.addTexture(
+          new TextureCreateInfo(
+            TEXTURE_NAME,
+            img,
+            gl.RGBA,
+            gl.RGBA,
+            gl.UNSIGNED_BYTE
+          )
+        );
       };
 
       const src = debugUrl.value;
@@ -76,17 +107,16 @@ const Viewport = () => {
 
     // Create a buffer with indices for a full-screen triangle
     // https://stackoverflow.com/a/59739538/11220609
-    const buffer = gl.createBuffer();
-    const positions = [-1.0, -1.0, 3.0, -1.0, -1.0, 3.0];
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.bufferData(
-      gl.ARRAY_BUFFER,
-      new Float32Array(positions),
-      gl.STATIC_DRAW
+    renderer.addBuffer(
+      new BufferCreateInfo(
+        TRIANGLE_BUFFER_NAME,
+        gl.ARRAY_BUFFER,
+        new Float32Array([-1.0, -1.0, 3.0, -1.0, -1.0, 3.0]),
+        gl.STATIC_DRAW
+      )
     );
 
-    gl.clearColor(0.333, 0.556, 0.05, 1.0);
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    renderer.initialize();
 
     const render = () => {
       gl.clear(gl.COLOR_BUFFER_BIT);
@@ -94,7 +124,10 @@ const Viewport = () => {
       gl.useProgram(basicShaderProgramInfo.program);
 
       // Bind the buffer that contains the data to render a full-screen triangle
-      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      gl.bindBuffer(
+        gl.ARRAY_BUFFER,
+        renderer.buffers.get(TRIANGLE_BUFFER_NAME).handle
+      );
       gl.vertexAttribPointer(
         basicShaderProgramInfo.attributes.triangleVertexIndex,
         2,
@@ -108,9 +141,14 @@ const Viewport = () => {
       );
 
       // Enable texture
-      gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, texture.handle);
-      gl.uniform1i(basicShaderProgramInfo.uniforms.sampler, 0);
+      if (renderer.textures.get(TEXTURE_NAME)) {
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(
+          gl.TEXTURE_2D,
+          renderer.textures.get(TEXTURE_NAME).handle
+        );
+        gl.uniform1i(basicShaderProgramInfo.uniforms.sampler, 0);
+      }
 
       gl.drawArrays(gl.TRIANGLES, 0, 3);
 
@@ -122,6 +160,7 @@ const Viewport = () => {
 
     return () => {
       cancelAnimationFrame(frameIndex);
+      renderer.cleanup();
     };
   });
 

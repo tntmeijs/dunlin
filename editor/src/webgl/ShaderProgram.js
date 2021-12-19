@@ -1,3 +1,6 @@
+/**
+ * Represents a linked shader program
+ */
 class ShaderProgram {
   /**
    * Create a new shader program by linking the specified shaders
@@ -24,7 +27,23 @@ class ShaderProgram {
    */
   destroy(gl) {
     gl.deleteProgram(this.handle);
+    this.handle = null;
   }
 }
 
-export { ShaderProgram };
+/**
+ * Contains all information necessary to create a shader program
+ */
+class ShaderProgramCreateInfo {
+  /**
+   * Create a new shader program create info object
+   * @param {string} name Name of this shader program
+   * @param {Array.<string>} requiredShaderNames Names of the shaders that are required by this shader program
+   */
+  constructor(name, requiredShaderNames) {
+    this.name = name;
+    this.requiredShaderNames = requiredShaderNames;
+  }
+}
+
+export { ShaderProgram, ShaderProgramCreateInfo };
