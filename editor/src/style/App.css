@@ -24,6 +24,9 @@
 }
 
 .viewport-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     flex-basis: 60%;
 
     background-color: #1f271b;

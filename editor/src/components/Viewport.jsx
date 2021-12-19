@@ -1,3 +1,5 @@
+import "../style/Viewport.css";
+
 import { useEffect, useRef } from "react";
 import { Shader } from "../webgl/Shader";
 import { ShaderProgram } from "../webgl/ShaderProgram";
@@ -125,8 +127,8 @@ const Viewport = () => {
 
   return (
     <canvas
+      id="viewport-canvas"
       ref={canvas}
-      style={{ width: "480px", height: "270px" }}
       width={"1920px"}
       height={"1080px"}
     ></canvas>
