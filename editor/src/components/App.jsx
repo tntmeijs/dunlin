@@ -1,6 +1,6 @@
 import "../style/App.css";
 
-import { Clips } from "./Clips";
+import { Media } from "./Media";
 import { Properties } from "./Properties";
 import { Timeline } from "./Timeline";
 import { Toolbar } from "./Toolbar";
@@ -14,8 +14,8 @@ function App() {
       </div>
 
       <div className="center-panels">
-        <div className="clips-container">
-          <Clips />
+        <div className="media-container">
+          <Media />
         </div>
         <div className="viewport-container">
           <Viewport />
