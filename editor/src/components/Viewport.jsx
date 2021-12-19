@@ -1,5 +1,5 @@
 import { mat4 } from "gl-matrix";
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Shader } from "../webgl/Shader";
 import { ShaderProgram } from "../webgl/ShaderProgram";
 
@@ -174,4 +174,4 @@ const Viewport = () => {
   );
 };
 
-export default Viewport;
+export { Viewport };

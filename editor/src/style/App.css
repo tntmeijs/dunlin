@@ -1,0 +1,42 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+
+.toolbar-container {
+    width: 100%;
+    height: 2rem;
+    
+    background-color: #19647e;
+}
+
+.center-panels {
+  display: flex;
+  height: 70%;
+}
+
+.clips-container {
+    flex-basis: 20%;
+
+    background-color: #28afb0;
+}
+
+.viewport-container {
+    flex-basis: 60%;
+
+    background-color: #1f271b;
+}
+
+.properties-container {
+    flex-basis: 20%;
+
+    background-color: #f4d35e;
+}
+
+.timeline-container {
+    height: calc(30% - 2rem);
+
+    background-color: #ee964b;
+}
