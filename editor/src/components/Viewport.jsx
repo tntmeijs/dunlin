@@ -2,6 +2,7 @@ import { mat4 } from "gl-matrix";
 import { useEffect, useRef } from "react";
 import { Shader } from "../webgl/Shader";
 import { ShaderProgram } from "../webgl/ShaderProgram";
+import { Texture } from "../webgl/Texture";
 
 function initBuffers(gl) {
   // Create a buffer for the square's positions.
@@ -14,8 +15,10 @@ function initBuffers(gl) {
   gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
 
   // Now create an array of positions for the square.
-
-  const positions = [-1.0, 1.0, 1.0, 1.0, -1.0, -1.0, 1.0, -1.0];
+  const positions = [
+    -1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, -1.0, -1.0, 0.0, 0.0, 1.0, -1.0,
+    1.0, 0.0,
+  ];
 
   // Now pass the list of positions into WebGL to build the
   // shape. We do this by creating a Float32Array from the
@@ -29,20 +32,30 @@ function initBuffers(gl) {
 }
 
 const vsSource = `
-attribute vec4 aPosition;
+attribute vec2 aPosition;
+attribute vec2 aTexCoord;
 
 uniform mat4 uProjectionMatrix;
 uniform mat4 uViewMatrix;
 uniform mat4 uModelMatrix;
 
+varying highp vec2 vTexCoord;
+
 void main() {
-    gl_Position = uProjectionMatrix * uViewMatrix * uModelMatrix * aPosition;
+  gl_Position = uProjectionMatrix * uViewMatrix * uModelMatrix * vec4(aPosition, 0.0, 1.0);
+  vTexCoord = aTexCoord;
 }
 `;
 
 const fsSource = `
+varying highp vec2 vTexCoord;
+
+uniform sampler2D uSampler;
+
 void main() {
-    gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+  gl_FragColor = texture2D(uSampler, vTexCoord);
+  // gl_FragColor = vec4(vTexCoord.x, vTexCoord.y, 0.0, 1.0);
+  // gl_FragColor = vec4(1, 1, 0, 1);
 }
 `;
 
@@ -74,6 +87,10 @@ const Viewport = () => {
           basicShaderProgram.handle,
           "aPosition"
         ),
+        textureCoordinate: gl.getAttribLocation(
+          basicShaderProgram.handle,
+          "aTexCoord"
+        ),
       },
       uniforms: {
         projectionMatrix: gl.getUniformLocation(
@@ -88,10 +105,25 @@ const Viewport = () => {
           basicShaderProgram.handle,
           "uModelMatrix"
         ),
+        sampler: gl.getUniformLocation(basicShaderProgram.handle, "uSampler"),
       },
     };
 
     const buffers = initBuffers(gl);
+
+    // Create a new texture whenever the debug URL changes
+    const texture = new Texture(gl);
+    const debugUrl = document.getElementById("debug-texture-url");
+    debugUrl.onkeyup = () => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        texture.setImageData(gl, img, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE);
+      };
+
+      const src = debugUrl.value;
+      img.src = src;
+    };
 
     gl.clearColor(0.333, 0.556, 0.05, 1.0);
     gl.clearDepth(1.0);
@@ -111,6 +143,12 @@ const Viewport = () => {
 
       // View matrix
       const viewMatrix = mat4.create();
+      mat4.lookAt(
+        viewMatrix,
+        [0.0, 0.0, 0.0],
+        [0.0, 0.0, -1.0],
+        [0.0, 1.0, 0.0]
+      );
 
       // Model matrix
       const modelMatrix = mat4.create();
@@ -121,17 +159,32 @@ const Viewport = () => {
       // Bind buffers for rendering
       gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
 
+      // Position offset
       gl.vertexAttribPointer(
         basicShaderProgramInfo.attributes.vertexPosition,
         2,
         gl.FLOAT,
         false,
-        0,
+        16,
         0
+      );
+
+      // Texture coordinate offset
+      gl.vertexAttribPointer(
+        basicShaderProgramInfo.attributes.textureCoordinate,
+        2,
+        gl.FLOAT,
+        false,
+        16,
+        8
       );
 
       gl.enableVertexAttribArray(
         basicShaderProgramInfo.attributes.vertexPosition
+      );
+
+      gl.enableVertexAttribArray(
+        basicShaderProgramInfo.attributes.textureCoordinate
       );
 
       // Draw using the shader
@@ -151,6 +204,12 @@ const Viewport = () => {
         false,
         modelMatrix
       );
+
+      // Enable texture
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, texture.handle);
+      gl.uniform1i(basicShaderProgramInfo.uniforms.sampler, 0);
+
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
       // Render the next frame
