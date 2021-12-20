@@ -78,32 +78,31 @@ const Viewport = () => {
       },
     };
 
-    // Create a new texture whenever the debug URL changes
-    const debugUrl = document.getElementById("debug-texture-url");
-    debugUrl.onkeyup = () => {
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.onload = () => {
-        // Remove the old texture (if it exists)
-        if (renderer.textures.get(TEXTURE_NAME)) {
-          renderer.deleteTexture(TEXTURE_NAME);
-        }
+    // === START DEBUG CODE ===
+    // This code has only been added for debugging purposes
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      // Remove the old texture (if it exists)
+      if (renderer.textures.get(TEXTURE_NAME)) {
+        renderer.deleteTexture(TEXTURE_NAME);
+      }
 
-        // Request a new texture
-        renderer.addTexture(
-          new TextureCreateInfo(
-            TEXTURE_NAME,
-            img,
-            gl.RGBA,
-            gl.RGBA,
-            gl.UNSIGNED_BYTE
-          )
-        );
-      };
-
-      const src = debugUrl.value;
-      img.src = src;
+      // Request a new texture
+      renderer.addTexture(
+        new TextureCreateInfo(
+          TEXTURE_NAME,
+          img,
+          gl.RGBA,
+          gl.RGBA,
+          gl.UNSIGNED_BYTE
+        )
+      );
     };
+
+    const src = "https://upload.wikimedia.org/wikipedia/commons/0/0a/Veste_Oberhaus_%28Passau%2C_full_spherical_panoramic_image%2C_equirectangular_projection%29.jpg";
+    img.src = src;
+    // === END DEBUG CODE ===
 
     // Create a buffer with indices for a full-screen triangle
     // https://stackoverflow.com/a/59739538/11220609

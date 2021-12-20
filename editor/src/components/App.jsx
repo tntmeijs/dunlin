@@ -10,7 +10,6 @@ function App() {
   return (
     <div className="app">
       <div className="toolbar-container">
-        <input type="text" id="debug-texture-url" />
         <Toolbar />
       </div>
 
