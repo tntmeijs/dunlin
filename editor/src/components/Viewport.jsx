@@ -1,6 +1,7 @@
 import "../style/Viewport.css";
 
 import { useEffect, useRef } from "react";
+import { quat } from "gl-matrix";
 import { BufferCreateInfo } from "../webgl/Buffer";
 import { Renderer } from "../webgl/Renderer";
 import { ShaderCreateInfo } from "../webgl/Shader";
@@ -28,12 +29,13 @@ const fsSource = `
 #define PI 3.1415926538
 precision mediump float;
 
-const float fov = 60.0;
 const float width = 1920.0;
 const float height = 1080.0;
 
 varying highp vec2 vTexCoord;
 
+uniform float fieldOfView;
+uniform vec4 cameraRotation;
 uniform sampler2D uSampler;
 
 // Spherical map sampling math from:
@@ -59,16 +61,15 @@ void main() {
   float imageAspectRatio = width / height;
   
   vec2 centeredUv = (vTexCoord * 2.0) - 1.0;
-  centeredUv.y = -centeredUv.y;
 
-  float pixelX = centeredUv.x * tan(fov / 2.0 * PI / 180.0) * imageAspectRatio; 
-  float pixelY = centeredUv.y * tan(fov / 2.0 * PI / 180.0);
+  float pixelX = centeredUv.x * tan(fieldOfView / 2.0 * PI / 180.0) * imageAspectRatio; 
+  float pixelY = centeredUv.y * tan(fieldOfView / 2.0 * PI / 180.0);
   
   vec3 rayDirection = vec3(pixelX, pixelY, -1.0);
   rayDirection = normalize(rayDirection);
 
   // Apply camera rotation quaternion
-  vec3 lookDirection = rotateVector(rayDirection, vec4(0.776, 0.0, -0.631, 0.0));
+  vec3 lookDirection = rotateVector(rayDirection, cameraRotation);
   gl_FragColor = texture2D(uSampler, sampleSphericalMap(lookDirection));
 }
 `;
@@ -78,6 +79,34 @@ const Viewport = () => {
 
   useEffect(() => {
     let frameIndex = null;
+
+    const fieldOfViewSlider = document.getElementById("field-of-view-slider");
+    let fov = fieldOfViewSlider.value;
+    fieldOfViewSlider.oninput = event => {
+      fov = event.target.value;
+    };
+
+    let pitch = 0;
+    let yaw = 0;
+    let roll = 0;
+
+    const pitchSlider = document.getElementById("pitch-slider");
+    pitch = pitchSlider.value;
+    pitchSlider.oninput = event => {
+      pitch = event.target.value;
+    };
+
+    const yawSlider = document.getElementById("yaw-slider");
+    yaw = yawSlider.value;
+    yawSlider.oninput = event => {
+      yaw = event.target.value;
+    };
+
+    const rollSlider = document.getElementById("roll-slider");
+    roll = rollSlider.value;
+    rollSlider.oninput = event => {
+      roll = event.target.value;
+    };
 
     /** @type {WebGLRenderingContext} */
     const gl = canvas.current.getContext("webgl");
@@ -115,6 +144,8 @@ const Viewport = () => {
       },
       uniforms: {
         sampler: gl.getUniformLocation(basicShaderProgram.handle, "uSampler"),
+        cameraRotation: gl.getUniformLocation(basicShaderProgram.handle, "cameraRotation"),
+        fieldOfView: gl.getUniformLocation(basicShaderProgram.handle, "fieldOfView")
       },
     };
 
@@ -162,6 +193,10 @@ const Viewport = () => {
 
       gl.useProgram(basicShaderProgramInfo.program);
 
+      /** @type {quat} */
+      let orientation = quat.create();
+      quat.fromEuler(orientation, pitch, yaw, roll);
+
       // Bind the buffer that contains the data to render a full-screen triangle
       gl.bindBuffer(
         gl.ARRAY_BUFFER,
@@ -178,6 +213,8 @@ const Viewport = () => {
       gl.enableVertexAttribArray(
         basicShaderProgramInfo.attributes.triangleVertexIndex
       );
+      gl.uniform1f(basicShaderProgramInfo.uniforms.fieldOfView, fov);
+      gl.uniform4f(basicShaderProgramInfo.uniforms.cameraRotation, orientation[0], orientation[1], orientation[2], orientation[3]);
 
       // Enable texture
       if (renderer.textures.get(TEXTURE_NAME)) {
