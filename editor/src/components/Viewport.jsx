@@ -25,20 +25,60 @@ void main() {
 `;
 
 const fsSource = `
+#define PI 3.1415926538
+precision mediump float;
+
+const float fov = 60.0;
+const float width = 1920.0;
+const float height = 1080.0;
+
 varying highp vec2 vTexCoord;
 
 uniform sampler2D uSampler;
 
+// Spherical map sampling math from:
+// https://learnopengl.com/PBR/IBL/Diffuse-irradiance
+const vec2 invAtan = vec2(0.1591, 0.3183);
+vec2 sampleSphericalMap(vec3 direction) {
+  vec2 uv = vec2(atan(direction.z, direction.x), asin(direction.y));
+  uv *= invAtan;
+  uv += 0.5;
+  return uv;
+}
+
+// Rotate a vector with a quaternion from:
+// https://blog.molecular-matters.com/2013/05/24/a-faster-quaternion-vector-multiplication/
+vec3 rotateVector(vec3 v, vec4 q) {
+  vec3 t = 2.0 * cross(q.xyz, v);
+  return v + q.w * t + cross(q.xyz, t);
+}
+
 void main() {
-  gl_FragColor = texture2D(uSampler, vTexCoord);
+  // Ray generation logic adapted from:
+  // https://www.scratchapixel.com/lessons/3d-basic-rendering/ray-tracing-generating-camera-rays/generating-camera-rays
+  float imageAspectRatio = width / height;
+  
+  vec2 centeredUv = (vTexCoord * 2.0) - 1.0;
+  centeredUv.y = -centeredUv.y;
+
+  float pixelX = centeredUv.x * tan(fov / 2.0 * PI / 180.0) * imageAspectRatio; 
+  float pixelY = centeredUv.y * tan(fov / 2.0 * PI / 180.0);
+  
+  vec3 rayDirection = vec3(pixelX, pixelY, -1.0);
+  rayDirection = normalize(rayDirection);
+
+  // Apply camera rotation quaternion
+  vec3 lookDirection = rotateVector(rayDirection, vec4(0.776, 0.0, -0.631, 0.0));
+  gl_FragColor = texture2D(uSampler, sampleSphericalMap(lookDirection));
 }
 `;
 
 const Viewport = () => {
-  let frameIndex = null;
   let canvas = useRef();
 
   useEffect(() => {
+    let frameIndex = null;
+
     /** @type {WebGLRenderingContext} */
     const gl = canvas.current.getContext("webgl");
 
