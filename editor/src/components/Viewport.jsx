@@ -1,7 +1,7 @@
 import "../style/Viewport.css";
 
 import { useEffect, useRef } from "react";
-import { quat } from "gl-matrix";
+import { quat, vec2 } from "gl-matrix";
 import { BufferCreateInfo } from "../webgl/Buffer";
 import { Renderer } from "../webgl/Renderer";
 import { ShaderCreateInfo } from "../webgl/Shader";
@@ -13,6 +13,10 @@ const FRAGMENT_SHADER_NAME = "FullscreenTriangleFS";
 const SHADER_PROGRAM_NAME = "FullscreenTriangle";
 const TEXTURE_NAME = "DebugImage";
 const TRIANGLE_BUFFER_NAME = "Triangle";
+const GRABBING_CLASSNAME = "grabbing";
+const DRAG_BUTTON = 1;
+const MIN_FOV = 5.0;
+const MAX_FOV = 179.0;
 
 const vsSource = `
 attribute vec2 aPosition;
@@ -56,6 +60,9 @@ vec3 rotateVector(vec3 v, vec4 q) {
 }
 
 void main() {
+  // @TODO: The ray generation code below is flawed
+  //        Use the camera logic shown here: https://raytracing.github.io/books/RayTracingInOneWeekend.html#positionablecamera
+
   // Ray generation logic adapted from:
   // https://www.scratchapixel.com/lessons/3d-basic-rendering/ray-tracing-generating-camera-rays/generating-camera-rays
   float imageAspectRatio = width / height;
@@ -64,13 +71,18 @@ void main() {
 
   float pixelX = centeredUv.x * tan(fieldOfView / 2.0 * PI / 180.0) * imageAspectRatio; 
   float pixelY = centeredUv.y * tan(fieldOfView / 2.0 * PI / 180.0);
+
+  vec3 lookDirection = vec3(0.0, 0.0, -1.0);
   
-  vec3 rayDirection = vec3(pixelX, pixelY, -1.0);
+  // Generate a ray to sample the spherical texture
+  vec3 rayDirection = lookDirection + vec3(pixelX, pixelY, 0.0);
   rayDirection = normalize(rayDirection);
 
   // Apply camera rotation quaternion
-  vec3 lookDirection = rotateVector(rayDirection, cameraRotation);
-  gl_FragColor = texture2D(uSampler, sampleSphericalMap(lookDirection));
+  rayDirection = rotateVector(rayDirection, cameraRotation);
+
+  // Sample the texture
+  gl_FragColor = texture2D(uSampler, sampleSphericalMap(rayDirection));
 }
 `;
 
@@ -80,32 +92,44 @@ const Viewport = () => {
   useEffect(() => {
     let frameIndex = null;
 
-    const fieldOfViewSlider = document.getElementById("field-of-view-slider");
-    let fov = fieldOfViewSlider.value;
-    fieldOfViewSlider.oninput = event => {
-      fov = event.target.value;
-    };
+    let fov = 60.0;
+
+    let mouseSensitivity = 0.5;
+    let scrollSensitivity = 4.0;
+    let rollSensitivity = 2.5;
 
     let pitch = 0;
     let yaw = 0;
     let roll = 0;
 
-    const pitchSlider = document.getElementById("pitch-slider");
-    pitch = pitchSlider.value;
-    pitchSlider.oninput = event => {
-      pitch = event.target.value;
+    canvas.current.onmouseup = event => event.currentTarget.classList.toggle(GRABBING_CLASSNAME);
+    canvas.current.onmousedown = event => event.currentTarget.classList.toggle(GRABBING_CLASSNAME);
+    canvas.current.onmouseleave = event => event.currentTarget.classList.remove(GRABBING_CLASSNAME);
+
+    canvas.current.onmousemove = event => {
+      if (event.buttons === DRAG_BUTTON) {
+        // The smaller the user's field of view, the slower the camera should rotate
+        const slowdown = fov / MAX_FOV;
+
+        yaw += event.movementX * mouseSensitivity * slowdown;
+        pitch += event.movementY * mouseSensitivity * slowdown;
+      } else {
+        event.currentTarget.classList.remove(GRABBING_CLASSNAME);
+      }
     };
 
-    const yawSlider = document.getElementById("yaw-slider");
-    yaw = yawSlider.value;
-    yawSlider.oninput = event => {
-      yaw = event.target.value;
-    };
+    canvas.current.onwheel = event => {
+      const scrollDirection = Math.sign(event.deltaY);
 
-    const rollSlider = document.getElementById("roll-slider");
-    roll = rollSlider.value;
-    rollSlider.oninput = event => {
-      roll = event.target.value;
+      if (event.shiftKey) {
+        // Shift has been pressed - use the scroll wheel to adjust the roll of the camera
+        const delta = scrollDirection * rollSensitivity;
+        roll += delta;
+      } else {
+        // Shift has not been pressed - use the scroll wheel to adjust the field of view of the camera
+        const delta = scrollDirection * scrollSensitivity;
+        fov = Math.min(Math.max(MIN_FOV, fov + delta), MAX_FOV);
+      }
     };
 
     /** @type {WebGLRenderingContext} */

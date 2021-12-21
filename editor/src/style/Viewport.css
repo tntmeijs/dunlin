@@ -1,4 +1,10 @@
 #viewport-canvas {
     height: 100%;
     width: auto;
+    user-select: none;
+    cursor: grab;
+}
+
+#viewport-canvas.grabbing {
+    cursor: grabbing;
 }
