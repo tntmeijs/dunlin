@@ -17,6 +17,8 @@ const GRABBING_CLASSNAME = "grabbing";
 const DRAG_BUTTON = 1;
 const MIN_FOV = 5.0;
 const MAX_FOV = 179.0;
+const MIN_PITCH = -89.0;
+const MAX_PITCH = 89.0;
 
 const vsSource = `
 attribute vec2 aPosition;
@@ -110,9 +112,21 @@ const Viewport = () => {
       if (event.buttons === DRAG_BUTTON) {
         // The smaller the user's field of view, the slower the camera should rotate
         const slowdown = fov / MAX_FOV;
+        const deltaYaw = event.movementX * mouseSensitivity * slowdown;
+        const deltaPitch = event.movementY * mouseSensitivity * slowdown;
 
-        yaw += event.movementX * mouseSensitivity * slowdown;
-        pitch += event.movementY * mouseSensitivity * slowdown;
+        yaw += deltaYaw;
+        pitch += deltaPitch;
+
+        // Ensure the camera cannot roll over
+        pitch = Math.min(Math.max(pitch, MIN_PITCH), MAX_PITCH);
+
+        // No need to go outside of the 0 to 360 degrees range
+        if (yaw < 0.0) {
+          yaw += 360.0;
+        } else if (yaw > 360.0) {
+          yaw -= 360.0;
+        }
       } else {
         event.currentTarget.classList.remove(GRABBING_CLASSNAME);
       }
