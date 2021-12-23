@@ -1,7 +1,6 @@
 import "../style/Viewport.css";
 
 import { useEffect, useRef } from "react";
-import { quat } from "gl-matrix";
 import { BufferCreateInfo } from "../webgl/Buffer";
 import { Renderer } from "../webgl/Renderer";
 import { ShaderCreateInfo } from "../webgl/Shader";
@@ -78,6 +77,12 @@ const Viewport = () => {
   let canvas = useRef();
 
   useEffect(() => {
+    const activeVideo = document.createElement("video");
+    activeVideo.crossOrigin = "anonymous";
+    activeVideo.autoplay = true;
+    activeVideo.muted = true;
+    activeVideo.loop = true;
+
     let frameIndex = null;
 
     const camera = new Camera();
@@ -123,6 +128,7 @@ const Viewport = () => {
         FRAGMENT_SHADER_NAME,
       ])
     );
+    renderer.addTexture(new TextureCreateInfo(TEXTURE_NAME));
 
     const basicShaderProgram = renderer.programs.get(SHADER_PROGRAM_NAME);
 
@@ -143,28 +149,20 @@ const Viewport = () => {
 
     // === START DEBUG CODE ===
     // This code has only been added for debugging purposes
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      // Remove the old texture (if it exists)
-      if (renderer.textures.get(TEXTURE_NAME)) {
-        renderer.deleteTexture(TEXTURE_NAME);
-      }
-
-      // Request a new texture
-      renderer.addTexture(
-        new TextureCreateInfo(
-          TEXTURE_NAME,
-          img,
-          gl.RGBA,
-          gl.RGBA,
-          gl.UNSIGNED_BYTE
-        )
-      );
+    let videoUpdate = false;
+    let videoStarted = false;
+    activeVideo.ontimeupdate = () => {
+      videoUpdate = true;
     };
 
-    const src = "https://upload.wikimedia.org/wikipedia/commons/0/0a/Veste_Oberhaus_%28Passau%2C_full_spherical_panoramic_image%2C_equirectangular_projection%29.jpg";
-    img.src = src;
+    activeVideo.onplaying = () => {
+      videoStarted = true;
+    };
+
+    // NASA, Public domain, via Wikimedia Commons
+    activeVideo.src = "https://upload.wikimedia.org/wikipedia/commons/0/0a/NASA_VR-360_Astronaut_Training-_Space_Walk.webm";
+    activeVideo.play();
+
     // === END DEBUG CODE ===
 
     // Create a buffer with indices for a full-screen triangle
@@ -181,6 +179,8 @@ const Viewport = () => {
     renderer.initialize();
 
     const render = () => {
+      const videoDataAvailable = videoStarted && videoUpdate;
+
       gl.clear(gl.COLOR_BUFFER_BIT);
 
       gl.useProgram(basicShaderProgramInfo.program);
@@ -204,8 +204,10 @@ const Viewport = () => {
       gl.uniform1f(basicShaderProgramInfo.uniforms.fieldOfView, camera.getFieldOfView());
       gl.uniform4fv(basicShaderProgramInfo.uniforms.cameraRotation, camera.getRotation());
 
-      // Enable texture
-      if (renderer.textures.get(TEXTURE_NAME)) {
+      // Enable texture if there is any video data to display
+      if (renderer.textures.get(TEXTURE_NAME) && videoDataAvailable) {
+        renderer.updateTextureData(TEXTURE_NAME, activeVideo);
+
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(
           gl.TEXTURE_2D,

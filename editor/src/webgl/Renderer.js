@@ -1,7 +1,7 @@
-import { Buffer, BufferCreateInfo } from "./Buffer";
-import { Shader, ShaderCreateInfo } from "./Shader";
-import { ShaderProgram, ShaderProgramCreateInfo } from "./ShaderProgram";
-import { Texture, TextureCreateInfo } from "./Texture";
+import { Buffer } from "./Buffer";
+import { Shader } from "./Shader";
+import { ShaderProgram } from "./ShaderProgram";
+import { Texture } from "./Texture";
 
 class Renderer {
   /**
@@ -85,14 +85,7 @@ class Renderer {
         `Cannot add texture "${info.name}" because a texture with this name has already been added to the renderer`
       );
     } else {
-      const texture = new Texture(
-        this.gl,
-        info.image,
-        info.texturePixelFormat,
-        info.imagePixelFormat,
-        info.pixelChannelDataType
-      );
-
+      const texture = new Texture(this.gl);
       this.textures.set(info.name, texture);
     }
   }
@@ -115,6 +108,19 @@ class Renderer {
       );
 
       this.buffers.set(info.name, buffer);
+    }
+  }
+
+  /**
+   * Update an existing texture's data
+   * @param {string} name Name of the target texture
+   * @param {TexImageSource} source Image or video source 
+   */
+  updateTextureData(name, source) {
+    if (this.textures.has(name)) {
+      this.textures.get(name).updateTexture(this.gl, source);
+    } else {
+      console.warn(`Cannot update texture "${name}" because a texture with this name has not been added to the renderer`);
     }
   }
 
@@ -143,14 +149,13 @@ class Renderer {
     this.gl.clearColor(1.0, 1.0, 1.0, 1.0);
 
     // Flip images automatically - HTML images are loaded top to bottom but WebGL expect images to be loaded from bottom to top
-
     this.gl.pixelStorei(this.gl.UNPACK_FLIP_Y_WEBGL, true);
   }
 
   /**
    * Render the scene
    */
-  render() {}
+  render() { }
 
   /**
    * Deallocate all registered WebGL resources
