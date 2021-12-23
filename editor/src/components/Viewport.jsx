@@ -1,12 +1,13 @@
 import "../style/Viewport.css";
 
 import { useEffect, useRef } from "react";
-import { quat, vec2 } from "gl-matrix";
+import { quat } from "gl-matrix";
 import { BufferCreateInfo } from "../webgl/Buffer";
 import { Renderer } from "../webgl/Renderer";
 import { ShaderCreateInfo } from "../webgl/Shader";
 import { ShaderProgramCreateInfo } from "../webgl/ShaderProgram";
 import { TextureCreateInfo } from "../webgl/Texture";
+import { Camera } from "../webgl/Camera";
 
 const VERTEX_SHADER_NAME = "FullscreenTriangleVS";
 const FRAGMENT_SHADER_NAME = "FullscreenTriangleFS";
@@ -15,10 +16,6 @@ const TEXTURE_NAME = "DebugImage";
 const TRIANGLE_BUFFER_NAME = "Triangle";
 const GRABBING_CLASSNAME = "grabbing";
 const DRAG_BUTTON = 1;
-const MIN_FOV = 5.0;
-const MAX_FOV = 179.0;
-const MIN_PITCH = -89.0;
-const MAX_PITCH = 89.0;
 
 const vsSource = `
 attribute vec2 aPosition;
@@ -62,28 +59,17 @@ vec3 rotateVector(vec3 v, vec4 q) {
 }
 
 void main() {
-  // @TODO: The ray generation code below is flawed
-  //        Use the camera logic shown here: https://raytracing.github.io/books/RayTracingInOneWeekend.html#positionablecamera
-
-  // Ray generation logic adapted from:
-  // https://www.scratchapixel.com/lessons/3d-basic-rendering/ray-tracing-generating-camera-rays/generating-camera-rays
-  float imageAspectRatio = width / height;
-  
   vec2 centeredUv = (vTexCoord * 2.0) - 1.0;
 
+  // Aspect ratio correction
+  float imageAspectRatio = width / height;
   float pixelX = centeredUv.x * tan(fieldOfView / 2.0 * PI / 180.0) * imageAspectRatio; 
   float pixelY = centeredUv.y * tan(fieldOfView / 2.0 * PI / 180.0);
 
-  vec3 lookDirection = vec3(0.0, 0.0, -1.0);
-  
   // Generate a ray to sample the spherical texture
-  vec3 rayDirection = lookDirection + vec3(pixelX, pixelY, 0.0);
-  rayDirection = normalize(rayDirection);
+  vec3 rayDirection = normalize(rotateVector(vec3(pixelX, pixelY, -1.0), cameraRotation));
 
-  // Apply camera rotation quaternion
-  rayDirection = rotateVector(rayDirection, cameraRotation);
-
-  // Sample the texture
+  // Sample the equirectangular texture
   gl_FragColor = texture2D(uSampler, sampleSphericalMap(rayDirection));
 }
 `;
@@ -94,15 +80,7 @@ const Viewport = () => {
   useEffect(() => {
     let frameIndex = null;
 
-    let fov = 60.0;
-
-    let mouseSensitivity = 0.5;
-    let scrollSensitivity = 4.0;
-    let rollSensitivity = 2.5;
-
-    let pitch = 0;
-    let yaw = 0;
-    let roll = 0;
+    const camera = new Camera();
 
     canvas.current.onmouseup = event => event.currentTarget.classList.toggle(GRABBING_CLASSNAME);
     canvas.current.onmousedown = event => event.currentTarget.classList.toggle(GRABBING_CLASSNAME);
@@ -110,40 +88,16 @@ const Viewport = () => {
 
     canvas.current.onmousemove = event => {
       if (event.buttons === DRAG_BUTTON) {
-        // The smaller the user's field of view, the slower the camera should rotate
-        const slowdown = fov / MAX_FOV;
-        const deltaYaw = event.movementX * mouseSensitivity * slowdown;
-        const deltaPitch = event.movementY * mouseSensitivity * slowdown;
-
-        yaw += deltaYaw;
-        pitch += deltaPitch;
-
-        // Ensure the camera cannot roll over
-        pitch = Math.min(Math.max(pitch, MIN_PITCH), MAX_PITCH);
-
-        // No need to go outside of the 0 to 360 degrees range
-        if (yaw < 0.0) {
-          yaw += 360.0;
-        } else if (yaw > 360.0) {
-          yaw -= 360.0;
-        }
+        camera.addPitch(event.movementY);
+        camera.addYaw(event.movementX);
       } else {
         event.currentTarget.classList.remove(GRABBING_CLASSNAME);
       }
     };
 
     canvas.current.onwheel = event => {
-      const scrollDirection = Math.sign(event.deltaY);
-
-      if (event.shiftKey) {
-        // Shift has been pressed - use the scroll wheel to adjust the roll of the camera
-        const delta = scrollDirection * rollSensitivity;
-        roll += delta;
-      } else {
-        // Shift has not been pressed - use the scroll wheel to adjust the field of view of the camera
-        const delta = scrollDirection * scrollSensitivity;
-        fov = Math.min(Math.max(MIN_FOV, fov + delta), MAX_FOV);
-      }
+      // Use the scroll wheel to adjust the field of view of the camera
+      camera.addFieldOfView(event.deltaY);
     };
 
     /** @type {WebGLRenderingContext} */
@@ -231,10 +185,6 @@ const Viewport = () => {
 
       gl.useProgram(basicShaderProgramInfo.program);
 
-      /** @type {quat} */
-      let orientation = quat.create();
-      quat.fromEuler(orientation, pitch, yaw, roll);
-
       // Bind the buffer that contains the data to render a full-screen triangle
       gl.bindBuffer(
         gl.ARRAY_BUFFER,
@@ -251,8 +201,8 @@ const Viewport = () => {
       gl.enableVertexAttribArray(
         basicShaderProgramInfo.attributes.triangleVertexIndex
       );
-      gl.uniform1f(basicShaderProgramInfo.uniforms.fieldOfView, fov);
-      gl.uniform4f(basicShaderProgramInfo.uniforms.cameraRotation, orientation[0], orientation[1], orientation[2], orientation[3]);
+      gl.uniform1f(basicShaderProgramInfo.uniforms.fieldOfView, camera.getFieldOfView());
+      gl.uniform4fv(basicShaderProgramInfo.uniforms.cameraRotation, camera.getRotation());
 
       // Enable texture
       if (renderer.textures.get(TEXTURE_NAME)) {
