@@ -1,6 +1,10 @@
 # Dunlin
 Welcome to the code repository of the Dunlin project!
 
+Dunlin is an open-source panoramic video editor written using [WebGL](https://www.khronos.org/webgl/) and [ReactJS](https://reactjs.org/). 🤓
+
+![dunlin editor preview](./media/editor.png)
+
 ## Information
 The goal of this project is to provide users of panoramic action cameras with a cheap, cross-platform, video editor. These days, 360 degree media is becoming a lot more common.
 
