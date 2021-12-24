@@ -10,11 +10,19 @@ class Buffer {
    * @param {GLenum} usage Draw usage (static / dynamic / stream)
    */
   constructor(gl, bindingTarget, data, usage) {
-    const positions = [-1.0, -1.0, 3.0, -1.0, -1.0, 3.0];
+    this.gl = gl;
+    this.target = bindingTarget;
 
     this.handle = gl.createBuffer();
     gl.bindBuffer(bindingTarget, this.handle);
     gl.bufferData(bindingTarget, data, usage);
+  }
+
+  /**
+   * Bind the buffer
+   */
+  bind() {
+    this.gl.bindBuffer(this.target, this.handle);
   }
 
   /**
